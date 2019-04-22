@@ -32,7 +32,7 @@ export const mainState = {
     name: 'main',
     url: '/',
     template: template,
-    controller: ['$scope', '$log', '$cookies', mainStateController],
+    controller: ['$scope', '$log', '$cookies','$http', mainStateController],
     controllerAs: 'vm'
 };
 
@@ -40,25 +40,37 @@ export function mainStateConfig($stateProvider) {
     $stateProvider.state(mainState);
 }
 
-export function mainStateController($scope, $log, $cookies) {
-    let swaggerUi = new SwaggerUi({
-        url: '/v1/apidoc/swagger.json',
-        dom_id: 'swagger-ui-container',
-        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-        onFailure: (data)=> {
-            $log.error('Unable to Load SwaggerUI');
-        },
-        onComplete: (swaggerApi, swaggerUi)=> {
-            swaggerApi.clientAuthorizations.add('X-CSRF-TOKEN', new SwaggerClient.ApiKeyAuthorization('X-CSRF-TOKEN', $cookies.get('CSRF-TOKEN'), 'header'));
-            $scope.$emit(HIDE_INTERSTITIAL_SPINNER_EVENT);
-        },
-        docExpansion: 'none',
-        jsonEditor: false,
-        defaultModelRendering: 'schema',
-        showRequestHeaders: false,
-        showOperationIds: false,
-        validatorUrl: null
-    });
+export function mainStateController($scope, $log, $cookies, $http) {
+    let swaggerFile = '/v1/apidoc/swagger.json';
+    function initSwaggerUi( addressableFromInternet) {
+        let swaggerOptions = {
+            url: swaggerFile,
+            dom_id: 'swagger-ui-container',
+            supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+            onFailure: (data)=> {
+                $log.error('Unable to Load SwaggerUI');
+            },
+            onComplete: (swaggerApi, swaggerUi)=> {
+                swaggerApi.clientAuthorizations.add('X-CSRF-TOKEN', new SwaggerClient.ApiKeyAuthorization('X-CSRF-TOKEN', $cookies.get('CSRF-TOKEN'), 'header'));
+                $scope.$emit(HIDE_INTERSTITIAL_SPINNER_EVENT);
+            },
+            docExpansion: 'none',
+            jsonEditor: false,
+            defaultModelRendering: 'schema',
+            showRequestHeaders: false,
+            showOperationIds: false
+        };
 
-    swaggerUi.load();
+        if(!addressableFromInternet)
+            swaggerOptions.validatorUrl=null;
+
+        let swaggerUi = new SwaggerUi(swaggerOptions);
+        swaggerUi.load();
+    }
+
+    if(!window.navigator.onLine){
+        initSwaggerUi(swaggerOptions, false);
+    }else{
+        $http.get(swaggerFile).then(initSwaggerUi(true), initSwaggerUi(false));
+    }
 }
